@@ -7,7 +7,6 @@ export default {
         cream: '#F4EDE0',
         canopy: '#2F5D4F',
         leaf: '#4A8B6F',
-        locked: '#3F8F6E',
         gold: '#E8B84B',
         coral: '#E07A5F',
         bark: '#3B2F26'
