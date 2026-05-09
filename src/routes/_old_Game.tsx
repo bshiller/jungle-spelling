@@ -12,18 +12,14 @@ import { sfx } from '../audio/sfx';
 
 const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
 
-// Given a stable shuffled list of letters that aren't in the answer,
-// returns the set of letters that should remain enabled on the keyboard.
-// After 1 miss, dim 5 non-word letters; after 2+ misses, dim 10. The miss-1
-// dim set is always a subset of the miss-2 set (progressive, not re-rolled).
-// If the word has fewer than 5/10 non-word letters available (won't happen
-// for real English answers), we just dim as many as exist.
-function buildCandidateSet(shuffledNonAnswer: string[], wrongAttempts: number): Set<string> | null {
-  if (wrongAttempts < 1) return null;
-  const target = wrongAttempts === 1 ? 5 : 10;
-  const dimCount = Math.min(target, shuffledNonAnswer.length);
-  const dimmed = new Set(shuffledNonAnswer.slice(0, dimCount));
-  return new Set(alphabet.filter((letter) => !dimmed.has(letter)));
+function buildCandidateSet(answer: string, wrongAttempts: number): Set<string> | null {
+  if (wrongAttempts < 2) return null;
+
+  const answerLetters = Array.from(new Set(answer.split('')));
+  const distractors = alphabet.filter((letter) => !answerLetters.includes(letter));
+  const shuffled = [...distractors].sort(() => Math.random() - 0.5);
+  const targetSize = wrongAttempts >= 3 ? answerLetters.length + Math.min(2, shuffled.length) : Math.max(10, answerLetters.length + 3);
+  return new Set([...answerLetters, ...shuffled.slice(0, Math.max(0, targetSize - answerLetters.length))]);
 }
 
 export default function Game() {
@@ -103,19 +99,8 @@ function PuzzlePlay({ profileName, puzzle, puzzleIndex, roundLength, target, onB
     [locked, pending, puzzle.answer]
   );
 
-  // Stable random ordering of letters that aren't in the answer, computed
-  // once per puzzle. Slicing the prefix gives a progressive dim set as
-  // wrongAttempts grows.
-  const shuffledNonAnswer = useMemo(() => {
-    const answerLetters = new Set(puzzle.answer.split(''));
-    const nonAnswer = alphabet.filter((letter) => !answerLetters.has(letter));
-    return nonAnswer.sort(() => Math.random() - 0.5);
-  }, [puzzle.answer]);
-
-  const allowedLetters = useMemo(
-    () => buildCandidateSet(shuffledNonAnswer, wrongAttempts),
-    [shuffledNonAnswer, wrongAttempts]
-  );
+  const allowedLetters = useMemo(() => buildCandidateSet(puzzle.answer, wrongAttempts), [puzzle.answer, wrongAttempts]);
+  const lockedLetters = useMemo(() => new Set(locked.filter(Boolean) as string[]), [locked]);
 
   const slots: AnswerSlotView[] = useMemo(() => {
     return puzzle.answer.split('').map((answerLetter, index) => {
@@ -270,6 +255,7 @@ function PuzzlePlay({ profileName, puzzle, puzzleIndex, roundLength, target, onB
             ) : (
               <OnScreenKeyboard
                 allowedLetters={allowedLetters}
+                lockedLetters={lockedLetters}
                 onLetter={handleLetter}
                 onBackspace={handleBackspace}
                 onSubmit={handleSubmit}
